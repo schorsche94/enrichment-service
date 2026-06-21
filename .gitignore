@@ -1,0 +1,7 @@
+# Build artifacts
+bin/
+
+# IDE files
+.idea/
+.vscode/
+
