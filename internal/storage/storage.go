@@ -6,7 +6,7 @@ import (
 )
 
 type Profiles interface {
-	Create(ctx context.Context, profile *Profile) error
+	Create(ctx context.Context, profile Profile) error
 	Get(ctx context.Context, id string) (Profile, error)
 }
 

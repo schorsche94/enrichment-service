@@ -2,6 +2,7 @@ package main
 
 import (
 	db2 "enrichment-service/internal/db"
+	"enrichment-service/internal/enrichment"
 	"enrichment-service/internal/env"
 	"enrichment-service/internal/storage"
 	"log"
@@ -32,10 +33,13 @@ func main() {
 	log.Println("database connection pool established")
 
 	store := storage.NewProfileStorage(db)
+	simulated := enrichment.NewSimulatedClient()
+	enrichment := enrichment.NewEnricher(simulated, store)
 
 	app := &application{
-		config: cfg,
-		store:  store,
+		config:     cfg,
+		store:      store,
+		enrichment: enrichment,
 	}
 
 	mux := app.Routes()

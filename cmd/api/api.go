@@ -55,18 +55,34 @@ type enrichRequest struct {
 	ProfileIDs []string `json:"profile_ids"`
 }
 
-func (s *application) handleEnrich(w http.ResponseWriter, r *http.Request) {
-	log.Println("handle enrich")
+func (app *application) handleEnrich(w http.ResponseWriter, r *http.Request) {
+	var req enrichRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("decode request body: %w", err))
+		return
+	}
+
+	if len(req.ProfileIDs) == 0 {
+		writeError(w, http.StatusBadRequest, errors.New("profile_ids must contain at least one ID"))
+		return
+	}
+
+	summary, err := app.enrichment.Enrich(r.Context(), req.ProfileIDs)
+	if err != nil {
+		log.Printf("enrich batch interrupted: %v", err)
+	}
+
+	writeJSON(w, http.StatusOK, summary)
 }
 
-func (s *application) handleGetProfile(w http.ResponseWriter, r *http.Request) {
+func (app *application) handleGetProfile(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, errors.New("profile id is required"))
 		return
 	}
 
-	profile, err := s.store.Get(r.Context(), id)
+	profile, err := app.store.Get(r.Context(), id)
 	if errors.Is(err, storage.ErrNotFound) {
 		writeError(w, http.StatusNotFound, fmt.Errorf("profile %q has not been enriched", id))
 		return
