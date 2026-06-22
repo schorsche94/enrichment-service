@@ -5,14 +5,12 @@ import (
 	"database/sql"
 )
 
-type Storage struct {
-	Profiles interface {
-		Create(context.Context, *Profile) error
-	}
+type Profiles interface {
+	Create(ctx context.Context, profile *Profile) error
+	Get(ctx context.Context, id string) (Profile, error)
 }
 
-func NewStorage(db *sql.DB) Storage {
-	return Storage{
-		Profiles: &ProfilesStorage{db},
-	}
+func NewProfileStorage(db *sql.DB) Profiles {
+	return &ProfilesStorage{db}
+
 }

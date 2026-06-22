@@ -31,14 +31,14 @@ func main() {
 	defer db.Close()
 	log.Println("database connection pool established")
 
-	store := storage.NewStorage(db)
+	store := storage.NewProfileStorage(db)
 
 	app := &application{
 		config: cfg,
 		store:  store,
 	}
 
-	mux := app.mount()
+	mux := app.Routes()
 
 	log.Fatal(app.run(mux))
 }
