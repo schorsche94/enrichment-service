@@ -4,6 +4,7 @@ import (
 	"context"
 	"enrichment-service/internal/storage"
 	"fmt"
+	"sync"
 )
 
 type Enrich interface {
@@ -15,8 +16,42 @@ func (e *Enricher) Enrich(ctx context.Context, profileIDs []string) (Summary, er
 	if len(profileIDs) == 0 {
 		return summary, nil
 	}
-	e.enrichOne(ctx, profileIDs[0])
-	return Summary{}, nil
+
+	results := make(chan result, len(profileIDs))
+
+	var wg sync.WaitGroup
+	for _, id := range profileIDs {
+		select {
+		case <-ctx.Done():
+			results <- result{failure: &Failure{ProfileID: id, Reason: "request canceled before enrichment started"}}
+			continue
+		default:
+		}
+
+		wg.Add(1)
+		go func(profileID string) {
+			defer wg.Done()
+			results <- e.enrichOne(ctx, profileID)
+		}(id)
+	}
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	for r := range results {
+		if r.failure != nil {
+			summary.Failed++
+			summary.Failures = append(summary.Failures, *r.failure)
+		} else {
+			summary.Enriched++
+		}
+	}
+
+	if err := ctx.Err(); err != nil {
+		return summary, fmt.Errorf("enrichment: batch interrupted: %w", err)
+	}
+	return summary, nil
 }
 
 func (e *Enricher) enrichOne(ctx context.Context, profileID string) result {
