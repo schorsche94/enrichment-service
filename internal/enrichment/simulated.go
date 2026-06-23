@@ -32,6 +32,14 @@ func (s *Simulated) Fetch(ctx context.Context, profileID string) (storage.Profil
 	case <-timer.C:
 	}
 
+	failureRate := s.FailureRate
+	if failureRate == 0 {
+		failureRate = 0.10
+	}
+	if rand.Float64() < failureRate {
+		return storage.Profile{}, fmt.Errorf("upstream: simulated failure for profile %q", profileID)
+	}
+
 	return storage.Profile{
 		ID:         profileID,
 		Username:   fmt.Sprintf("User %s", profileID),
@@ -41,13 +49,15 @@ func (s *Simulated) Fetch(ctx context.Context, profileID string) (storage.Profil
 }
 
 type Simulated struct {
-	MinDelay time.Duration
-	MaxDelay time.Duration
+	FailureRate float64
+	MinDelay    time.Duration
+	MaxDelay    time.Duration
 }
 
 func NewSimulatedClient() *Simulated {
 	return &Simulated{
-		MinDelay: 100 * time.Millisecond,
-		MaxDelay: 400 * time.Millisecond,
+		FailureRate: 0.10,
+		MinDelay:    100 * time.Millisecond,
+		MaxDelay:    400 * time.Millisecond,
 	}
 }
