@@ -18,6 +18,7 @@ func (e *Enricher) Enrich(ctx context.Context, profileIDs []string) (Summary, er
 	}
 
 	results := make(chan result, len(profileIDs))
+	sem := make(chan struct{}, e.concurrency)
 
 	var wg sync.WaitGroup
 	for _, id := range profileIDs {
@@ -28,12 +29,21 @@ func (e *Enricher) Enrich(ctx context.Context, profileIDs []string) (Summary, er
 		default:
 		}
 
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+			results <- result{failure: &Failure{ProfileID: id, Reason: "request canceled before enrichment started"}}
+			continue
+		}
+
 		wg.Add(1)
 		go func(profileID string) {
 			defer wg.Done()
+			defer func() { <-sem }()
 			results <- e.enrichOne(ctx, profileID)
 		}(id)
 	}
+
 	go func() {
 		wg.Wait()
 		close(results)
@@ -83,14 +93,18 @@ type Summary struct {
 }
 
 type Enricher struct {
-	fetcher Fetcher
-	storage storage.Profiles
+	fetcher     Fetcher
+	storage     storage.Profiles
+	concurrency int
 }
 
-func NewEnricher(fetcher Fetcher, storage storage.Profiles) *Enricher {
-
+func NewEnricher(fetcher Fetcher, storage storage.Profiles, concurrency int) *Enricher {
+	if concurrency <= 0 {
+		concurrency = 1
+	}
 	return &Enricher{
-		fetcher: fetcher,
-		storage: storage,
+		fetcher:     fetcher,
+		storage:     storage,
+		concurrency: concurrency,
 	}
 }

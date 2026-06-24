@@ -17,6 +17,7 @@ func main() {
 			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
 			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
+		concurrency: env.GetInt("CONCURRENCY", 5),
 	}
 
 	db, err := db2.New(
@@ -34,7 +35,7 @@ func main() {
 
 	store := storage.NewProfileStorage(db)
 	simulated := enrichment.NewSimulatedClient()
-	enrichment := enrichment.NewEnricher(simulated, store)
+	enrichment := enrichment.NewEnricher(simulated, store, cfg.concurrency)
 
 	app := &application{
 		config:     cfg,

@@ -17,8 +17,9 @@ type application struct {
 	enrichment enrichment.Enrich
 }
 type config struct {
-	db   dbConfig
-	addr string
+	db          dbConfig
+	addr        string
+	concurrency int
 }
 
 type dbConfig struct {
