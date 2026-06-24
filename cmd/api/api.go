@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 )
 
 type application struct {
@@ -36,20 +35,6 @@ func (app *application) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /v1/profiles/{id}", app.handleGetProfile)
 
 	return mux
-}
-
-func (app *application) run(mux *http.ServeMux) error {
-
-	srv := &http.Server{
-		Addr:         app.config.addr,
-		Handler:      mux,
-		WriteTimeout: 30 * time.Second,
-		ReadTimeout:  10 * time.Second,
-		IdleTimeout:  time.Minute,
-	}
-	log.Printf("server has started at %s", app.config.addr)
-
-	return srv.ListenAndServe()
 }
 
 type enrichRequest struct {

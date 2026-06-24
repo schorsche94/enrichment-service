@@ -1,24 +1,35 @@
 package main
 
 import (
+	"context"
 	db2 "enrichment-service/internal/db"
 	"enrichment-service/internal/enrichment"
 	"enrichment-service/internal/env"
 	"enrichment-service/internal/storage"
+	"errors"
+	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 func main() {
-	cfg := config{
-		addr: env.GetString("ADDR", ":8080"),
-		db: dbConfig{
-			addr:         env.GetString("DB_ADDR", "postgres://enricher_user:enricher_pwd@localhost:5432/enrich?sslmode=disable"),
-			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
-			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
-			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
-		},
-		concurrency: env.GetInt("CONCURRENCY", 5),
+
+	if err := run(); err != nil {
+		log.Fatal("server exited with error", "error", err)
+		os.Exit(1)
 	}
+
+}
+
+func run() error {
+	cfg := loadConfig()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	db, err := db2.New(
 		cfg.db.addr,
@@ -45,5 +56,49 @@ func main() {
 
 	mux := app.Routes()
 
-	log.Fatal(app.run(mux))
+	srv := &http.Server{
+		Addr:         app.config.addr,
+		Handler:      mux,
+		WriteTimeout: 30 * time.Second,
+		ReadTimeout:  10 * time.Second,
+		IdleTimeout:  time.Minute,
+	}
+	log.Printf("server has started at %s", app.config.addr)
+
+	errCh := make(chan error, 1)
+	go func() {
+		log.Printf("listening", "addr", cfg.addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- fmt.Errorf("listen and serve: %w", err)
+			return
+		}
+		errCh <- nil
+	}()
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		log.Printf("shutting down...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("shutdown: %w", err)
+		}
+		return nil
+	}
+}
+
+func loadConfig() config {
+	cfg := config{
+		addr: env.GetString("ADDR", ":8080"),
+		db: dbConfig{
+			addr:         env.GetString("DB_ADDR", "postgres://enricher_user:enricher_pwd@localhost:5432/enrich?sslmode=disable"),
+			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
+			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
+			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
+		},
+		concurrency: env.GetInt("CONCURRENCY", 5),
+	}
+
+	return cfg
 }
