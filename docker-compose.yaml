@@ -15,7 +15,47 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5436:5432"
+
+  enrichment-service:
+    build: ./
+    command: ./bin/api
+    ports:
+      - 8080:8080
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate-reset:
+        condition: service_completed_successfully
+    environment:
+      ADDR: :8080
+      CONCURRENCY: 5
+      DB_ADDR: postgres://enricher_user:enricher_pwd@db:5432/enrich?sslmode=disable
+      DB_USER: enricher_user
+      DB_PASSWORD: enricher_pwd
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: enrich
+
+  migrate-reset:
+    image: migrate/migrate:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./internal/db/migrations:/migrations
+    entrypoint:
+      - sh
+      - -c
+    command:
+      - |
+        set -e
+        echo "=== Rolling back ==="
+        migrate -path=/migrations -database "postgres://enricher_user:enricher_pwd@db:5432/enrich?sslmode=disable" down --all || true
+        echo "=== Applying migrations ==="
+        migrate -path=/migrations -database "postgres://enricher_user:enricher_pwd@db:5432/enrich?sslmode=disable" up
+    restart: "no"
+
 
 volumes:
   db-data:
