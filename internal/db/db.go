@@ -10,6 +10,10 @@ import (
 )
 
 func New(addr string, maxOpenConns, maxIdleConns int, maxIdleTime string) (*sql.DB, error) {
+	return newWithDriver("postgres", addr, maxOpenConns, maxIdleConns, maxIdleTime)
+}
+
+func newWithDriver(driverName, addr string, maxOpenConns, maxIdleConns int, maxIdleTime string) (*sql.DB, error) {
 	duration, err := time.ParseDuration(maxIdleTime)
 	if err != nil {
 		return nil, fmt.Errorf("invalid maxIdleTime duration %q: %w", maxIdleTime, err)
@@ -25,7 +29,7 @@ func New(addr string, maxOpenConns, maxIdleConns int, maxIdleTime string) (*sql.
 		maxIdleConns = maxOpenConns
 	}
 
-	db, err := sql.Open("postgres", addr)
+	db, err := sql.Open(driverName, addr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open postgres connection: %w", err)
 	}
