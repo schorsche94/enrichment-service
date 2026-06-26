@@ -28,14 +28,17 @@ services:
       migrate-reset:
         condition: service_completed_successfully
     environment:
-      ADDR: :8080
-      CONCURRENCY: 5
-      DB_ADDR: postgres://enricher_user:enricher_pwd@db:5432/enrich?sslmode=disable
-      DB_USER: enricher_user
-      DB_PASSWORD: enricher_pwd
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: enrich
+      ADDR: ${ADDR}
+      CONCURRENCY: ${CONCURRENCY}
+      DB_ADDR: ${DB_ADDR}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_MAX_OPEN_CONNS: ${DB_MAX_OPEN_CONNS}
+      DB_MAX_IDLE_CONNS: ${DB_MAX_IDLE_CONNS}
+      DB_MAX_IDLE_TIME: ${DB_MAX_IDLE_TIME}
 
   migrate-reset:
     image: migrate/migrate:latest

@@ -110,7 +110,7 @@ func loadConfig() (config, error) {
 	cfg := config{
 		addr: env.GetString("ADDR", ":8080"),
 		db: dbConfig{
-			addr:         env.GetString("DB_ADDR", "postgres://enricher_user:enricher_pwd@db:5432/enrich?sslmode=disable"),
+			addr:         env.GetString("DB_ADDR", "postgres://enricher_user:enricher_pwd@localhost:5436/enrich?sslmode=disable"),
 			maxOpenConns: maxOpenConns,
 			maxIdleConns: maxIdleConns,
 			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
