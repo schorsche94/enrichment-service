@@ -26,7 +26,7 @@ func (s *ProfilesStorage) Create(ctx context.Context, profile Profile) error {
 
 	err := s.db.QueryRowContext(ctx, query, profile.ID, profile.Username, profile.Email).Scan(&profile.ID, &profile.EnrichedAt)
 	if err != nil {
-		return err
+		return fmt.Errorf("storage: create profile %s: %w", profile.ID, err)
 	}
 
 	return nil

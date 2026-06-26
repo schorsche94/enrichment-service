@@ -26,7 +26,10 @@ func main() {
 }
 
 func run() error {
-	cfg := loadConfig()
+	cfg, err := loadConfig()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -38,7 +41,7 @@ func run() error {
 		cfg.db.maxIdleTime,
 	)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("open database: %w", err)
 	}
 
 	defer db.Close()
@@ -67,7 +70,7 @@ func run() error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("listening", "addr", cfg.addr)
+		log.Printf("listening on %s", cfg.addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- fmt.Errorf("listen and serve: %w", err)
 			return
@@ -88,17 +91,32 @@ func run() error {
 	}
 }
 
-func loadConfig() config {
+func loadConfig() (config, error) {
+	maxOpenConns, err := env.GetInt("DB_MAX_OPEN_CONNS", 30)
+	if err != nil {
+		return config{}, err
+	}
+
+	maxIdleConns, err := env.GetInt("DB_MAX_IDLE_CONNS", 30)
+	if err != nil {
+		return config{}, err
+	}
+
+	concurrency, err := env.GetInt("CONCURRENCY", 5)
+	if err != nil {
+		return config{}, err
+	}
+
 	cfg := config{
 		addr: env.GetString("ADDR", ":8080"),
 		db: dbConfig{
 			addr:         env.GetString("DB_ADDR", "postgres://enricher_user:enricher_pwd@db:5432/enrich?sslmode=disable"),
-			maxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
-			maxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
+			maxOpenConns: maxOpenConns,
+			maxIdleConns: maxIdleConns,
 			maxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
 		},
-		concurrency: env.GetInt("CONCURRENCY", 5),
+		concurrency: concurrency,
 	}
 
-	return cfg
+	return cfg, nil
 }
